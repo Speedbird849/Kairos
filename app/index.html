@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kairos AI Room Designer</title>
+  <style>
+    body { font-family: sans-serif; padding: 2em; }
+    input, button { margin: 1em 0; display: block; }
+    #response, #products { white-space: pre-wrap; background: #f9f9f9; padding: 1em; border-radius: 8px; }
+    .product {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 1em;
+      display: flex;
+      gap: 1em;
+      align-items: center;
+    }
+    .product img {
+      max-height: 80px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Kairos: AI Interior Design Tool</h1>
+
+  <label>Upload Room Image:</label>
+  <input type="file" id="imageInput" accept="image/*">
+
+  <label>Enter Vibe (e.g., minimal, cozy):</label>
+  <input type="text" id="vibePrompt" placeholder="Enter your desired vibe">
+
+  <button onclick="submitForm()">Submit</button>
+
+  <h2>Design Suggestions:</h2>
+  <div id="response"></div>
+
+  <h2>Recommended Products:</h2>
+  <div id="products"></div>
+
+  <script>
+    async function submitForm() {
+      const imageFile = document.getElementById('imageInput').files[0];
+      const vibePrompt = document.getElementById('vibePrompt').value;
+
+      if (!imageFile || !vibePrompt) {
+        alert("Please select an image and enter a vibe prompt.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      formData.append("vibe", vibePrompt);
+
+      try {
+        document.getElementById("response").innerText = "Analyzing room...";
+        document.getElementById("products").innerHTML = "";
+
+        const response = await fetch("http://127.0.0.1:8000/analyze-room", {
+          method: "POST",
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          // Show design suggestions
+          document.getElementById("response").innerText =
+            `Detected Layout:\n${JSON.stringify(result.layout, null, 2)}\n\nSuggestions:\n- ${
+              result.suggestions.map(s => `${s.action} ${s.item} at ${JSON.stringify(s.location)}`).join("\n- ")
+            }\n\nGemini AI Says:\n${result.gemini_design_ideas}`;
+
+          // Show product recommendations
+          const productsDiv = document.getElementById("products");
+          result.products?.forEach(product => {
+            const div = document.createElement("div");
+            div.className = "product";
+
+            div.innerHTML = `
+              <img src="${product.thumbnail}" alt="product" />
+              <div>
+                <a href="${product.link}" target="_blank"><strong>${product.title}</strong></a><br/>
+                <span>${product.price || ''}</span>
+              </div>
+            `;
+
+            productsDiv.appendChild(div);
+          });
+
+        } else {
+          document.getElementById("response").innerText = `Error: ${result.detail || "Unknown error."}`;
+        }
+      } catch (err) {
+        document.getElementById("response").innerText = `Request failed: ${err.message}`;
+      }
+    }
+  </script>
+
+</body>
+</html>
